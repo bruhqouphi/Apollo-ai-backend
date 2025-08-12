@@ -641,3 +641,176 @@ class DataAnalyzer:
             'data_quality_score': round(quality_score, 1),
             'recommendations': recommendations
         }
+    
+    def get_structured_business_analysis(self) -> Dict[str, Any]:
+        """
+        Get structured analysis specifically formatted for business insights and LLM consumption.
+        This method provides concrete numbers and patterns that can be fed to LLM for 
+        specialized data analysis insights.
+        
+        Returns:
+            Structured business analysis with concrete metrics
+        """
+        analysis = {}
+        
+        # 1. Dataset Overview
+        analysis["dataset_summary"] = {
+            "total_records": len(self.df),
+            "total_features": len(self.df.columns),
+            "memory_usage_mb": round(self.df.memory_usage(deep=True).sum() / 1024 / 1024, 2),
+            "data_types": {
+                "numerical": len([col for col in self.column_types if self.column_types[col] == ColumnType.numeric]),
+                "categorical": len([col for col in self.column_types if self.column_types[col] == ColumnType.categorical]),
+                "datetime": len([col for col in self.column_types if self.column_types[col] == ColumnType.datetime]),
+                "boolean": len([col for col in self.column_types if self.column_types[col] == ColumnType.boolean])
+            }
+        }
+        
+        # 2. Detailed Numerical Analysis
+        numerical_cols = [col for col in self.df.columns if self.column_types[col] == ColumnType.numeric]
+        if numerical_cols:
+            analysis["numerical_insights"] = {}
+            
+            for col in numerical_cols:
+                col_data = self.df[col].dropna()
+                if len(col_data) > 0:
+                    analysis["numerical_insights"][col] = {
+                        "mean": round(col_data.mean(), 2),
+                        "median": round(col_data.median(), 2),
+                        "std": round(col_data.std(), 2),
+                        "min": round(col_data.min(), 2),
+                        "max": round(col_data.max(), 2),
+                        "range": round(col_data.max() - col_data.min(), 2),
+                        "coefficient_of_variation": round((col_data.std() / col_data.mean()) * 100, 2) if col_data.mean() != 0 else 0,
+                        "skewness": round(col_data.skew(), 2),
+                        "kurtosis": round(col_data.kurtosis(), 2),
+                        "percentile_25": round(col_data.quantile(0.25), 2),
+                        "percentile_75": round(col_data.quantile(0.75), 2),
+                        "outlier_count": len(self._detect_outliers(col_data)),
+                        "missing_count": self.df[col].isnull().sum(),
+                        "missing_percentage": round((self.df[col].isnull().sum() / len(self.df)) * 100, 2)
+                    }
+        
+        # 3. Categorical Analysis
+        categorical_cols = [col for col in self.df.columns if self.column_types[col] == ColumnType.categorical]
+        if categorical_cols:
+            analysis["categorical_insights"] = {}
+            
+            for col in categorical_cols:
+                value_counts = self.df[col].value_counts()
+                analysis["categorical_insights"][col] = {
+                    "unique_values": self.df[col].nunique(),
+                    "most_frequent": value_counts.index[0] if len(value_counts) > 0 else None,
+                    "most_frequent_count": int(value_counts.iloc[0]) if len(value_counts) > 0 else 0,
+                    "most_frequent_percentage": round((value_counts.iloc[0] / len(self.df)) * 100, 2) if len(value_counts) > 0 else 0,
+                    "least_frequent": value_counts.index[-1] if len(value_counts) > 0 else None,
+                    "least_frequent_count": int(value_counts.iloc[-1]) if len(value_counts) > 0 else 0,
+                    "missing_count": self.df[col].isnull().sum(),
+                    "missing_percentage": round((self.df[col].isnull().sum() / len(self.df)) * 100, 2),
+                    "top_5_values": dict(value_counts.head().to_dict())
+                }
+        
+        # 4. Correlation Analysis
+        if len(numerical_cols) > 1:
+            corr_matrix = self.df[numerical_cols].corr()
+            analysis["correlation_insights"] = {}
+            
+            # Find strongest correlations
+            correlations = []
+            for i in range(len(numerical_cols)):
+                for j in range(i+1, len(numerical_cols)):
+                    corr_value = corr_matrix.iloc[i, j]
+                    if not np.isnan(corr_value):
+                        correlations.append({
+                            "variable_1": numerical_cols[i],
+                            "variable_2": numerical_cols[j],
+                            "correlation": round(corr_value, 3),
+                            "strength": self._interpret_correlation_strength(abs(corr_value)),
+                            "direction": "positive" if corr_value > 0 else "negative"
+                        })
+            
+            # Sort by absolute correlation strength
+            correlations.sort(key=lambda x: abs(x["correlation"]), reverse=True)
+            analysis["correlation_insights"]["strongest_correlations"] = correlations[:10]
+            analysis["correlation_insights"]["average_correlation"] = round(np.mean([abs(c["correlation"]) for c in correlations]), 3)
+        
+        # 5. Data Quality Assessment
+        total_cells = len(self.df) * len(self.df.columns)
+        missing_cells = self.df.isnull().sum().sum()
+        
+        analysis["data_quality"] = {
+            "completeness_percentage": round(((total_cells - missing_cells) / total_cells) * 100, 2),
+            "missing_values_total": int(missing_cells),
+            "columns_with_missing_data": int((self.df.isnull().sum() > 0).sum()),
+            "duplicate_rows": int(self.df.duplicated().sum()),
+            "columns_with_outliers": len([col for col in numerical_cols if len(self._detect_outliers(self.df[col].dropna())) > 0])
+        }
+        
+        # 6. Business Insights Patterns
+        analysis["business_patterns"] = self._identify_business_patterns()
+        
+        return analysis
+    
+    def _interpret_correlation_strength(self, abs_corr: float) -> str:
+        """Interpret correlation strength in business terms."""
+        if abs_corr >= 0.8:
+            return "very_strong"
+        elif abs_corr >= 0.6:
+            return "strong"
+        elif abs_corr >= 0.4:
+            return "moderate"
+        elif abs_corr >= 0.2:
+            return "weak"
+        else:
+            return "very_weak"
+    
+    def _identify_business_patterns(self) -> Dict[str, Any]:
+        """Identify key business patterns in the data."""
+        patterns = {
+            "high_variance_features": [],
+            "potential_target_variables": [],
+            "features_with_extreme_values": [],
+            "categorical_concentration": {}
+        }
+        
+        numerical_cols = [col for col in self.df.columns if self.column_types[col] == ColumnType.numeric]
+        categorical_cols = [col for col in self.df.columns if self.column_types[col] == ColumnType.categorical]
+        
+        # High variance features (potential key drivers)
+        for col in numerical_cols:
+            col_data = self.df[col].dropna()
+            if len(col_data) > 0:
+                cv = (col_data.std() / col_data.mean()) * 100 if col_data.mean() != 0 else 0
+                if cv > 50:  # High coefficient of variation
+                    patterns["high_variance_features"].append({
+                        "feature": col,
+                        "coefficient_of_variation": round(cv, 2)
+                    })
+        
+        # Potential target variables (numerical columns with specific patterns)
+        for col in numerical_cols:
+            col_name_lower = col.lower()
+            if any(keyword in col_name_lower for keyword in ['price', 'cost', 'value', 'amount', 'revenue', 'profit', 'rating', 'score']):
+                patterns["potential_target_variables"].append(col)
+        
+        # Features with extreme values
+        for col in numerical_cols:
+            outlier_count = len(self._detect_outliers(self.df[col].dropna()))
+            if outlier_count > len(self.df) * 0.05:  # More than 5% outliers
+                patterns["features_with_extreme_values"].append({
+                    "feature": col,
+                    "outlier_count": outlier_count,
+                    "outlier_percentage": round((outlier_count / len(self.df)) * 100, 2)
+                })
+        
+        # Categorical concentration (how concentrated the categorical data is)
+        for col in categorical_cols:
+            value_counts = self.df[col].value_counts()
+            if len(value_counts) > 0:
+                concentration = value_counts.iloc[0] / len(self.df)
+                patterns["categorical_concentration"][col] = {
+                    "top_category_concentration": round(concentration * 100, 2),
+                    "diversity_score": round(1 - concentration, 2)
+                }
+        
+        return patterns

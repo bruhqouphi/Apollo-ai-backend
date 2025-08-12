@@ -28,6 +28,11 @@ class DataVisualizer:
         self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
         self.categorical_columns = df.select_dtypes(include=['object', 'category']).columns.tolist()
         self.datetime_columns = df.select_dtypes(include=['datetime64']).columns.tolist()
+        
+        print(f"DEBUG: Visualizer initialized with {len(df)} rows and {len(df.columns)} columns")
+        print(f"DEBUG: Numeric columns: {self.numeric_columns}")
+        print(f"DEBUG: Categorical columns: {self.categorical_columns}")
+        print(f"DEBUG: Datetime columns: {self.datetime_columns}")
     
     def generate_histogram(self, column: str, bins: int = 20) -> Dict[str, Any]:
         """
@@ -187,17 +192,17 @@ class DataVisualizer:
         Generate bar chart for categorical data
         
         Args:
-            column: Categorical column name
+            column: Column name (will be converted to categorical if needed)
             top_n: Number of top categories to show
             
         Returns:
             Chart.js compatible bar chart data
         """
-        if column not in self.categorical_columns:
-            raise ValueError(f"Column '{column}' is not categorical")
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
         
-        # Get value counts
-        value_counts = self.df[column].value_counts().head(top_n)
+        # Convert to string and get value counts (works for any data type)
+        value_counts = self.df[column].astype(str).value_counts().head(top_n)
         
         return {
             "type": "bar",
@@ -244,6 +249,146 @@ class DataVisualizer:
                 "top_n": top_n,
                 "total_unique": self.df[column].nunique(),
                 "total_values": len(self.df[column].dropna())
+            }
+        }
+    
+    def generate_line_chart(self, x_column: str, y_column: str) -> Dict[str, Any]:
+        """
+        Generate line chart for time series or sequential data
+        
+        Args:
+            x_column: X-axis column name (usually time/sequence)
+            y_column: Y-axis column name (numeric values)
+            
+        Returns:
+            Chart.js compatible line chart data
+        """
+        if x_column not in self.df.columns or y_column not in self.df.columns:
+            raise ValueError(f"Columns '{x_column}' or '{y_column}' not found in DataFrame")
+        
+        # Try to convert y_column to numeric if it's not already
+        try:
+            y_data = pd.to_numeric(self.df[y_column], errors='coerce')
+        except:
+            raise ValueError(f"Y column '{y_column}' cannot be converted to numeric values")
+        
+        # Get clean data and sort by x column
+        df_clean = self.df[[x_column]].copy()
+        df_clean[y_column] = y_data
+        df_clean = df_clean.dropna()
+        df_clean = df_clean.sort_values(x_column)
+        
+        return {
+            "type": "line",
+            "data": {
+                "labels": df_clean[x_column].astype(str).tolist(),
+                "datasets": [{
+                    "label": f"{y_column} over {x_column}",
+                    "data": df_clean[y_column].tolist(),
+                    "borderColor": "rgba(75, 192, 192, 1)",
+                    "backgroundColor": "rgba(75, 192, 192, 0.2)",
+                    "borderWidth": 2,
+                    "fill": True,
+                    "tension": 0.1
+                }]
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {
+                    "title": {
+                        "display": True,
+                        "text": f"{y_column} Trend over {x_column}"
+                    },
+                    "legend": {
+                        "display": True
+                    }
+                },
+                "scales": {
+                    "x": {
+                        "title": {
+                            "display": True,
+                            "text": x_column
+                        }
+                    },
+                    "y": {
+                        "title": {
+                            "display": True,
+                            "text": y_column
+                        }
+                    }
+                }
+            },
+            "metadata": {
+                "x_column": x_column,
+                "y_column": y_column,
+                "total_points": len(df_clean),
+                "min_value": float(df_clean[y_column].min()),
+                "max_value": float(df_clean[y_column].max()),
+                "trend": "increasing" if df_clean[y_column].iloc[-1] > df_clean[y_column].iloc[0] else "decreasing"
+            }
+        }
+    
+    def generate_pie_chart(self, column: str, top_n: int = 8) -> Dict[str, Any]:
+        """
+        Generate pie chart for categorical data
+        
+        Args:
+            column: Column name (will be converted to categorical if needed)
+            top_n: Number of top categories to show
+            
+        Returns:
+            Chart.js compatible pie chart data
+        """
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+        
+        # Convert to string and get value counts (works for any data type)
+        value_counts = self.df[column].astype(str).value_counts().head(top_n)
+        
+        # Generate colors
+        colors = [
+            'rgba(255, 99, 132, 0.8)',
+            'rgba(54, 162, 235, 0.8)',
+            'rgba(255, 205, 86, 0.8)',
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(153, 102, 255, 0.8)',
+            'rgba(255, 159, 64, 0.8)',
+            'rgba(199, 199, 199, 0.8)',
+            'rgba(83, 102, 255, 0.8)'
+        ]
+        
+        return {
+            "type": "pie",
+            "data": {
+                "labels": value_counts.index.tolist(),
+                "datasets": [{
+                    "label": f"Distribution of {column}",
+                    "data": value_counts.values.tolist(),
+                    "backgroundColor": colors[:len(value_counts)],
+                    "borderColor": "rgba(255, 255, 255, 1)",
+                    "borderWidth": 2
+                }]
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {
+                    "title": {
+                        "display": True,
+                        "text": f"Distribution of {column}"
+                    },
+                    "legend": {
+                        "display": True,
+                        "position": "bottom"
+                    }
+                }
+            },
+            "metadata": {
+                "column": column,
+                "top_n": top_n,
+                "total_unique": self.df[column].nunique(),
+                "total_values": len(self.df[column].dropna()),
+                "largest_category": value_counts.index[0],
+                "largest_percentage": float((value_counts.iloc[0] / value_counts.sum()) * 100)
             }
         }
     
@@ -441,8 +586,10 @@ class DataVisualizer:
         return {
             "histogram": self.numeric_columns,
             "boxplot": self.numeric_columns,
-            "bar_chart": self.categorical_columns,
-            "scatter_plot": self.numeric_columns,
+            "bar": self.df.columns.tolist(),  # All columns can be used for bar charts
+            "line": self.df.columns.tolist() if len(self.df.columns) >= 2 else [],  # Any columns for line
+            "pie": self.df.columns.tolist(),  # All columns can be used for pie charts
+            "scatter": self.numeric_columns if len(self.numeric_columns) >= 2 else [],
             "heatmap": self.numeric_columns if len(self.numeric_columns) >= 2 else []
         }
     
@@ -468,6 +615,10 @@ class DataVisualizer:
         
         if len(self.categorical_columns) >= 1:
             recommendations.append("Bar charts for categorical distributions")
+            recommendations.append("Pie charts to show proportions")
+        
+        if len(self.numeric_columns) >= 1 and len(self.df.columns) >= 2:
+            recommendations.append("Line charts for trends over time/sequence")
         
         return {
             "available_visualizations": available,

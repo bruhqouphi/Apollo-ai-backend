@@ -1,0 +1,13 @@
+Month,Sales,Marketing_Spend,Customers,Conversion_Rate,Region
+January,125000,15000,1200,0.08,North
+February,138000,18000,1350,0.09,North
+March,142000,20000,1400,0.10,North
+April,156000,22000,1550,0.11,South
+May,168000,25000,1650,0.12,South
+June,175000,28000,1700,0.13,South
+July,182000,30000,1800,0.14,East
+August,195000,32000,1900,0.15,East
+September,208000,35000,2000,0.16,East
+October,220000,38000,2100,0.17,West
+November,235000,40000,2200,0.18,West
+December,250000,45000,2300,0.19,West

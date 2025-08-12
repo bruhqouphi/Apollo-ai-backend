@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -26,6 +26,36 @@ class ChartType(str, Enum):
     stacked_bar = "stacked_bar"
     grouped_bar = "grouped_bar"
     area_chart = "area_chart"
+
+
+# ------------------ AUTHENTICATION SCHEMAS ------------------
+class UserBase(BaseModel):
+    email: EmailStr
+    full_name: Optional[str] = None
+    is_active: bool = True
+
+class UserCreate(UserBase):
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class User(UserBase):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: User
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
 
 
 # ------------------ EXTRA TYPES USED BY analyzer.py ------------------
@@ -80,8 +110,6 @@ class StatisticalTest(BaseModel):
     interpretation: Optional[str] = None
     extra: Optional[Dict[str, Any]] = None
 
-# ------------------ Core Enums ------------------
-
 # ------------------ General Responses ------------------
 class HealthResponse(BaseModel):
     status: str
@@ -106,7 +134,16 @@ class UploadResponse(BaseModel):
     columns_count: int
     columns: List[str]
 
-# ------------------ Analysis ------------------
+class FileInfo(BaseModel):
+    file_id: str
+    filename: str
+    file_size: str
+    rows_count: int
+    columns_count: int
+    columns: List[str]
+    upload_time: datetime
+    user_id: str
+
 class ColumnStats(BaseModel):
     name: str
     dtype: ColumnType
@@ -141,9 +178,6 @@ class AnalysisResponse(BaseModel):
     analysis_timestamp: datetime
     processing_time_seconds: float
     message: str
-
-# If analyzer.py expects AnalyzeResponse, alias it to AnalysisResponse
-AnalyzeResponse = AnalysisResponse
 
 # ------------------ Visualization ------------------
 class VisualizationRequest(BaseModel):
@@ -207,7 +241,7 @@ class InsightRequest(BaseModel):
     include_recommendations: bool = True
     include_next_steps: bool = True
     user_context: Optional[str] = None
-    llm_provider: str = "openai"
+    llm_provider: str = "groq"  # Default to Groq (free, fast, reliable)
     max_tokens: int = 1000
 
 class InsightResponse(BaseModel):
