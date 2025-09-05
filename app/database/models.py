@@ -87,17 +87,18 @@ class Visualization(Base):
     user = relationship("User", back_populates="visualizations")
 
 class Insight(Base):
-    """Insight model for storing AI-generated insights."""
+    """Insight model for storing hybrid AI-generated insights."""
     __tablename__ = "insights"
-    
+
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     file_id = Column(String(36), ForeignKey("files.id"), nullable=False)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
-    llm_provider = Column(String(50), nullable=False)  # groq, openai, etc.
+    analysis_type = Column(String(50), nullable=False)  # summary, trends, anomalies, comprehensive
+    processing_method = Column(String(50), nullable=False)  # hybrid_local, local_only, enhanced_local
     insights_data = Column(JSON, nullable=False)  # InsightResult
     processing_time = Column(Integer, nullable=False)  # Seconds
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # Relationships
     file = relationship("File", back_populates="insights")
     user = relationship("User", back_populates="insights") 

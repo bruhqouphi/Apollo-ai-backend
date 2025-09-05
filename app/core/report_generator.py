@@ -32,8 +32,12 @@ except ImportError:
 try:
     import weasyprint
     WEASYPRINT_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError) as e:
+    # OSError can occur on Windows when system libraries are missing
     WEASYPRINT_AVAILABLE = False
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"WeasyPrint not available: {e}")
 
 from app.models.schemas import AnalysisResult, VisualizationResult, InsightResult
 

@@ -10,7 +10,8 @@ from fastapi import HTTPException, status
 
 from app.database.database import get_database
 from app.database.models import File, Insight, User
-from app.core.insight_generator import InsightGenerator
+from app.core.local_insight_engine import LocalInsightEngine
+from app.core.ollama_enhancer import OllamaEnhancer, TemplateEnhancer
 from app.models.schemas import InsightRequest
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,9 @@ class InsightService:
     
     def __init__(self):
         self.db: Session = next(get_database())
+        self.local_insight_engine = LocalInsightEngine()
+        self.ollama_enhancer = OllamaEnhancer()
+        self.template_enhancer = TemplateEnhancer()
     
     async def generate_insights(self, request: InsightRequest) -> Dict[str, Any]:
         """Generate AI-powered insights for uploaded data."""
@@ -49,20 +53,32 @@ class InsightService:
                 confidence_level=0.95
             )
             
-            print("Running analysis...")
+            logger.info("Running analysis for insight generation...")
             analysis_result = await analysis_service.analyze_data(analysis_request)
-            print("Analysis completed successfully")
+            logger.info("Analysis completed successfully")
             
-            # Generate insights using existing generator
-            print("Starting insight generation...")
-            insight_generator = InsightGenerator(llm_provider=request.llm_provider or "fallback")
-            # Use the full analysis result, not just the nested part
-            insights_result = await insight_generator.generate_comprehensive_insights(
-                analysis_results=analysis_result,
-                df=df,
-                user_context=request.user_context
-            )
-            print("Insights generated successfully")
+            # Generate insights using local engines
+            logger.info("Starting local insight generation...")
+            insights_result = self.local_insight_engine.generate_comprehensive_insights(df)
+            logger.info("Local insights generated successfully")
+            
+            # Enhance with local LLM narrative
+            try:
+                enhanced_summary = await self.ollama_enhancer.enhance_executive_summary(insights_result.get('executive_summary', {}))
+                enhanced_recommendations = await self.ollama_enhancer.enhance_recommendations(insights_result.get('recommendations', []))
+                
+                insights_result['enhanced_executive_summary'] = enhanced_summary
+                insights_result['enhanced_recommendations'] = enhanced_recommendations
+            except Exception as e:
+                logger.warning(f"LLM enhancement failed, using template: {e}")
+                # Fallback to template enhancer
+                enhanced_summary = self.template_enhancer.enhance_executive_summary(insights_result.get('executive_summary', {}))
+                enhanced_recommendations = self.template_enhancer.enhance_recommendations(insights_result.get('recommendations', []))
+                
+                insights_result['enhanced_executive_summary'] = enhanced_summary
+                insights_result['enhanced_recommendations'] = enhanced_recommendations
+            
+            logger.info("Insights enhancement completed")
             
             # Convert datetime objects to strings for JSON serialization
             def convert_datetime_to_string(obj):

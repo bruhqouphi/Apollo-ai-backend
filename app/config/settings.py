@@ -26,10 +26,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # CORS settings
+    # CORS settings - Configure for your frontend domain
     CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",  # React dev server
-        "http://localhost:8080",  # Vue dev server  
+        "https://your-frontend-domain.com",  # Replace with your actual frontend domain
+        "http://localhost:3000",  # React dev server (for development)
+        "http://localhost:8080",  # Vue dev server (for development)
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080"
     ]

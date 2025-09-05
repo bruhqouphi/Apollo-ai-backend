@@ -20,18 +20,27 @@ from app.config.settings import settings
 from app.models.schemas import HealthResponse, ErrorResponse
 from app.database.database import init_database, check_database_connection
 from app.api.routers import (
-    auth_router, upload_router, analysis_router, 
+    auth_router, upload_router, analysis_router,
     visualization_router, insights_router, files_router
 )
+from app.api.routers.enhanced_analysis import router as enhanced_analysis_router
+from app.api.endpoints.visualization import router as smart_visualization_router
 
 # Configure logging
+try:
+    # Try to create log file in the project directory
+    log_file_path = Path(__file__).parent.parent / 'apollo_ai.log'
+    file_handler = logging.FileHandler(log_file_path)
+    handlers = [file_handler, logging.StreamHandler()]
+except PermissionError:
+    # Fallback to console-only logging if file permissions fail
+    print("Warning: Cannot write to log file. Using console logging only.")
+    handlers = [logging.StreamHandler()]
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('apollo_ai.log'),
-        logging.StreamHandler()
-    ]
+    handlers=handlers
 )
 
 logger = logging.getLogger(__name__)
@@ -57,7 +66,7 @@ app.add_middleware(
 # Configure Trusted Host middleware for security
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"]  # Configure appropriately for production
+    allowed_hosts=["*"]  # TODO: Configure with your actual domain in production
 )
 
 # Create required directories
@@ -71,7 +80,9 @@ app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(upload_router, prefix="/api/v1")
 app.include_router(analysis_router, prefix="/api/v1")
-app.include_router(visualization_router, prefix="/api/v1")
+app.include_router(enhanced_analysis_router, prefix="/api/v1")
+app.include_router(visualization_router, prefix="/api/v1")  # Chart.js based - RE-ENABLED (uses matplotlib now)
+# app.include_router(smart_visualization_router, prefix="/api/v1")  # Matplotlib based - DISABLED (conflicts with old router)
 app.include_router(insights_router, prefix="/api/v1")
 app.include_router(files_router, prefix="/api/v1")
 

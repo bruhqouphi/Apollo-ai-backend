@@ -81,7 +81,9 @@ class DataAnalyzer:
                 raise ValueError(f"CSV must have at least {settings.MIN_COLUMNS} columns")
             
             if len(self.df) > settings.MAX_ROWS:
-                print(f"Warning: Dataset has {len(self.df)} rows. Limiting to {settings.MAX_ROWS} for analysis.")
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Dataset has {len(self.df)} rows. Limiting to {settings.MAX_ROWS} for analysis.")
                 self.df = self.df.head(settings.MAX_ROWS)
             
         except Exception as e:
@@ -530,12 +532,14 @@ class DataAnalyzer:
         Args:
             column_type_overrides: Dictionary mapping column names to desired ColumnType
         """
+        import logging
+        logger = logging.getLogger(__name__)
         for column, col_type in column_type_overrides.items():
             if column in self.df.columns:
                 self.column_types[column] = col_type
-                print(f"Overridden column '{column}' type to {col_type.value}")
+                logger.info(f"Overridden column '{column}' type to {col_type.value}")
             else:
-                print(f"Warning: Column '{column}' not found in dataset")
+                logger.warning(f"Column '{column}' not found in dataset")
     
     def analyze(self, **kwargs) -> Dict[str, Any]:
         """

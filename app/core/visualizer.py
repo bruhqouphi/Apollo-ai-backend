@@ -24,15 +24,45 @@ class DataVisualizer:
         Args:
             df: Pandas DataFrame to visualize
         """
-        self.df = df
+        self.df = df.copy()  # Work with a copy to avoid modifying original
+
+        # Enhanced data type detection
         self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-        self.categorical_columns = df.select_dtypes(include=['object', 'category']).columns.tolist()
         self.datetime_columns = df.select_dtypes(include=['datetime64']).columns.tolist()
+
+        # Detect potential date columns that are currently strings
+        potential_date_columns = []
+        for col in df.columns:
+            if col not in self.numeric_columns and col not in self.datetime_columns:
+                # Try to parse as date
+                try:
+                    pd.to_datetime(df[col].head(5), errors='coerce')
+                    potential_date_columns.append(col)
+                except:
+                    pass
+
+        # Convert detected date columns to datetime
+        for col in potential_date_columns:
+            try:
+                self.df[col] = pd.to_datetime(df[col], errors='coerce')
+                if self.df[col].notna().any():
+                    self.datetime_columns.append(col)
+                else:
+                    self.df[col] = df[col]  # Revert if parsing failed
+            except:
+                pass
+
+        # Categorical columns are everything else
+        all_special_cols = set(self.numeric_columns + self.datetime_columns)
+        self.categorical_columns = [col for col in df.columns if col not in all_special_cols]
         
-        print(f"DEBUG: Visualizer initialized with {len(df)} rows and {len(df.columns)} columns")
-        print(f"DEBUG: Numeric columns: {self.numeric_columns}")
-        print(f"DEBUG: Categorical columns: {self.categorical_columns}")
-        print(f"DEBUG: Datetime columns: {self.datetime_columns}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Visualizer initialized with {len(df)} rows and {len(df.columns)} columns")
+        logger.debug(f"Numeric columns: {self.numeric_columns}")
+        logger.debug(f"Categorical columns: {self.categorical_columns}")
+        logger.debug(f"Datetime columns: {self.datetime_columns}")
+        logger.debug(f"Detected date columns: {potential_date_columns}")
     
     def generate_histogram(self, column: str, bins: int = 20) -> Dict[str, Any]:
         """
@@ -45,64 +75,86 @@ class DataVisualizer:
         Returns:
             Chart.js compatible histogram data
         """
+        # Enhanced validation with better error messages
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in dataset. Available columns: {list(self.df.columns)}")
+        
         if column not in self.numeric_columns:
-            raise ValueError(f"Column '{column}' is not numeric")
+            available_numeric = list(self.numeric_columns)
+            raise ValueError(f"Column '{column}' is not numeric. Available numeric columns: {available_numeric}")
         
-        # Calculate histogram
+        # Check if we have enough data
         data = self.df[column].dropna()
-        hist, bin_edges = np.histogram(data, bins=bins)
+        if len(data) == 0:
+            raise ValueError(f"Column '{column}' has no valid numeric data (all values are NaN)")
         
-        # Create bin labels (midpoints)
-        bin_centers = [(bin_edges[i] + bin_edges[i+1]) / 2 for i in range(len(bin_edges)-1)]
+        if len(data) < 2:
+            raise ValueError(f"Column '{column}' has only {len(data)} valid value(s). Need at least 2 values for histogram.")
         
-        return {
-            "type": "bar",
-            "data": {
-                "labels": [f"{edge:.2f}" for edge in bin_centers],
-                "datasets": [{
-                    "label": f"Frequency of {column}",
-                    "data": hist.tolist(),
-                    "backgroundColor": "rgba(54, 162, 235, 0.6)",
-                    "borderColor": "rgba(54, 162, 235, 1)",
-                    "borderWidth": 1
-                }]
-            },
-            "options": {
-                "responsive": True,
-                "plugins": {
-                    "title": {
-                        "display": True,
-                        "text": f"Distribution of {column}"
+        # Validate bins parameter
+        if bins < 2:
+            raise ValueError(f"Number of bins ({bins}) must be at least 2")
+        
+        if bins > len(data):
+            bins = min(len(data), 20)  # Auto-adjust bins if too many
+        
+        try:
+            # Calculate histogram
+            hist, bin_edges = np.histogram(data, bins=bins)
+            
+            # Create bin labels (midpoints)
+            bin_centers = [(bin_edges[i] + bin_edges[i+1]) / 2 for i in range(len(bin_edges)-1)]
+            
+            return {
+                "type": "bar",
+                "data": {
+                    "labels": [f"{edge:.2f}" for edge in bin_centers],
+                    "datasets": [{
+                        "label": f"Frequency of {column}",
+                        "data": hist.tolist(),
+                        "backgroundColor": "rgba(54, 162, 235, 0.6)",
+                        "borderColor": "rgba(54, 162, 235, 1)",
+                        "borderWidth": 1
+                    }]
+                },
+                "options": {
+                    "responsive": True,
+                    "plugins": {
+                        "title": {
+                            "display": True,
+                            "text": f"Distribution of {column}"
+                        },
+                        "legend": {
+                            "display": False
+                        }
                     },
-                    "legend": {
-                        "display": False
+                    "scales": {
+                        "x": {
+                            "title": {
+                                "display": True,
+                                "text": column
+                            }
+                        },
+                        "y": {
+                            "title": {
+                                "display": True,
+                                "text": "Frequency"
+                            }
+                        }
                     }
                 },
-                "scales": {
-                    "x": {
-                        "title": {
-                            "display": True,
-                            "text": column
-                        }
-                    },
-                    "y": {
-                        "title": {
-                            "display": True,
-                            "text": "Frequency"
-                        }
-                    }
+                "metadata": {
+                    "column": column,
+                    "bins": bins,
+                    "total_values": len(data),
+                    "min_value": float(data.min()),
+                    "max_value": float(data.max()),
+                    "mean": float(data.mean()),
+                    "std": float(data.std())
                 }
-            },
-            "metadata": {
-                "column": column,
-                "bins": bins,
-                "total_values": len(data),
-                "min_value": float(data.min()),
-                "max_value": float(data.max()),
-                "mean": float(data.mean()),
-                "std": float(data.std())
             }
-        }
+        except Exception as e:
+            raise ValueError(f"Failed to generate histogram for column '{column}': {str(e)}")
     
     def generate_boxplot(self, columns: List[str]) -> Dict[str, Any]:
         """
@@ -576,21 +628,121 @@ class DataVisualizer:
             intensity = int(255 * (normalized - 0.5) * 2)
             return f"rgba(255, {255 - intensity}, {255 - intensity}, 0.8)"
     
-    def get_available_visualizations(self) -> Dict[str, List[str]]:
+    def generate_grouped_bar_chart(self, group_column: str, value_column: str, aggregation: str = 'mean') -> Dict[str, Any]:
+        """
+        Generate grouped bar chart (e.g., Sales by Month, Revenue by Region)
+        
+        Args:
+            group_column: Column to group by (categorical, like Month, Region)
+            value_column: Column to aggregate (numeric, like Sales, Revenue)
+            aggregation: How to aggregate values ('mean', 'sum', 'count', 'median')
+            
+        Returns:
+            Chart.js compatible bar chart data
+        """
+        if group_column not in self.df.columns:
+            raise ValueError(f"Group column '{group_column}' not found")
+        if value_column not in self.df.columns:
+            raise ValueError(f"Value column '{value_column}' not found")
+        
+        # Group and aggregate data
+        if aggregation == 'mean':
+            grouped_data = self.df.groupby(group_column)[value_column].mean()
+        elif aggregation == 'sum':
+            grouped_data = self.df.groupby(group_column)[value_column].sum()
+        elif aggregation == 'count':
+            grouped_data = self.df.groupby(group_column)[value_column].count()
+        elif aggregation == 'median':
+            grouped_data = self.df.groupby(group_column)[value_column].median()
+        else:
+            grouped_data = self.df.groupby(group_column)[value_column].mean()  # Default to mean
+        
+        # Sort by group labels for better display
+        grouped_data = grouped_data.sort_index()
+        
+        # Prepare labels and data
+        labels = grouped_data.index.astype(str).tolist()
+        values = grouped_data.values.tolist()
+        
+        # Generate colors
+        colors = [
+            f"rgba({np.random.randint(50, 255)}, {np.random.randint(50, 255)}, {np.random.randint(50, 255)}, 0.7)"
+            for _ in labels
+        ]
+        
+        return {
+            "type": "bar",
+            "data": {
+                "labels": labels,
+                "datasets": [{
+                    "label": f"{value_column} by {group_column} ({aggregation})",
+                    "data": values,
+                    "backgroundColor": colors,
+                    "borderColor": [color.replace("0.7", "1.0") for color in colors],
+                    "borderWidth": 1
+                }]
+            },
+            "options": {
+                "responsive": True,
+                "plugins": {
+                    "title": {
+                        "display": True,
+                        "text": f"{value_column} by {group_column}",
+                        "font": {"size": 16, "weight": "bold"}
+                    },
+                    "legend": {
+                        "display": True
+                    }
+                },
+                "scales": {
+                    "x": {
+                        "title": {
+                            "display": True,
+                            "text": group_column,
+                            "font": {"size": 14, "weight": "bold"}
+                        }
+                    },
+                    "y": {
+                        "title": {
+                            "display": True,
+                            "text": f"{value_column} ({aggregation})",
+                            "font": {"size": 14, "weight": "bold"}
+                        },
+                        "beginAtZero": True
+                    }
+                }
+            },
+            "metadata": {
+                "chart_type": "grouped_bar",
+                "group_column": group_column,
+                "value_column": value_column,
+                "aggregation": aggregation,
+                "data_points": len(labels),
+                "total_records": len(self.df),
+                "description": f"Shows {value_column} aggregated by {group_column} using {aggregation}"
+            }
+        }
+
+    def get_available_visualizations(self) -> Dict[str, any]:
         """
         Get available visualization options based on data types
-        
+
         Returns:
             Dictionary of visualization types and applicable columns
         """
         return {
             "histogram": self.numeric_columns,
             "boxplot": self.numeric_columns,
-            "bar": self.df.columns.tolist(),  # All columns can be used for bar charts
+            "bar": self.categorical_columns + self.datetime_columns,  # Categorical columns for bar charts
             "line": self.df.columns.tolist() if len(self.df.columns) >= 2 else [],  # Any columns for line
-            "pie": self.df.columns.tolist(),  # All columns can be used for pie charts
+            "pie": self.categorical_columns,  # Only categorical for pie charts
             "scatter": self.numeric_columns if len(self.numeric_columns) >= 2 else [],
-            "heatmap": self.numeric_columns if len(self.numeric_columns) >= 2 else []
+            "heatmap": self.numeric_columns if len(self.numeric_columns) >= 2 else [],
+            "time_series": self.datetime_columns + self.numeric_columns if len(self.datetime_columns) > 0 else [],
+            "grouped_bar": {
+                "categorical": self.categorical_columns + self.datetime_columns,  # Include datetime as categorical for grouping
+                "numeric": self.numeric_columns
+            }
         }
     
     def generate_visualization_summary(self) -> Dict[str, Any]:
@@ -617,8 +769,13 @@ class DataVisualizer:
             recommendations.append("Bar charts for categorical distributions")
             recommendations.append("Pie charts to show proportions")
         
-        if len(self.numeric_columns) >= 1 and len(self.df.columns) >= 2:
-            recommendations.append("Line charts for trends over time/sequence")
+        if len(self.datetime_columns) >= 1:
+            recommendations.append("Time series analysis for date-based trends")
+            if len(self.numeric_columns) >= 1:
+                recommendations.append("Line charts showing trends over time")
+
+        if len(self.numeric_columns) >= 1 and len(self.categorical_columns) >= 1:
+            recommendations.append("Grouped bar charts to compare categories")
         
         return {
             "available_visualizations": available,

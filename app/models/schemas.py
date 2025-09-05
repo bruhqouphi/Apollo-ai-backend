@@ -130,6 +130,7 @@ class UploadResponse(BaseModel):
     file_id: str
     filename: str
     file_size: str
+    file_size_bytes: int
     rows_count: int
     columns_count: int
     columns: List[str]
@@ -138,6 +139,7 @@ class FileInfo(BaseModel):
     file_id: str
     filename: str
     file_size: str
+    file_size_bytes: int
     rows_count: int
     columns_count: int
     columns: List[str]
@@ -241,11 +243,13 @@ class InsightRequest(BaseModel):
     include_recommendations: bool = True
     include_next_steps: bool = True
     user_context: Optional[str] = None
-    llm_provider: str = "groq"  # Default to Groq (free, fast, reliable)
-    max_tokens: int = 1000
+    analysis_type: str = "comprehensive"  # Type of analysis (summary, trends, anomalies, comprehensive)
+    processing_method: str = "hybrid_local"  # hybrid_local, local_only, enhanced_local
 
 class InsightResponse(BaseModel):
     file_id: str
+    analysis_type: str
+    processing_method: str
     insights: InsightResult
     generation_timestamp: datetime
     processing_time_seconds: float

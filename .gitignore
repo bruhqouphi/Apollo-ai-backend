@@ -16,61 +16,42 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# Virtual environments
-apollo_env/
+# Virtual Environments
 venv/
-env/
+apollo_env/
 ENV/
+env/
+.venv
+.ENV
 
-# Environment variables
+# Environment Variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.production
+.env.staging
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
-apollo_ai.db
 
 # Logs
 *.log
-apollo_ai.log
+logs/
 
-# Uploads and temporary files
-uploads/
-exports/
-temp_charts/
-static/
-
-# Node.js (Frontend)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# React build
-apollo-frontend/build/
-apollo-frontend/.env.local
-apollo-frontend/.env.development.local
-apollo-frontend/.env.test.local
-apollo-frontend/.env.production.local
-
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS files
+# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -79,24 +60,39 @@ apollo-frontend/.env.production.local
 ehthumbs.db
 Thumbs.db
 
+# Upload directories
+uploads/*
+!uploads/.gitkeep
+exports/*
+!exports/.gitkeep
+temp_charts/*
+!temp_charts/.gitkeep
+
+# Reports
+reports/*.html
+reports/*.pdf
+
+# Charts
+charts/*
+!charts/.gitkeep
+
+# Node.js (if any frontend remnants)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# pytest
-.pytest_cache/
+# Documentation builds
+_build/
 
-# Coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# Static files
+static/*
+!static/.gitkeep
