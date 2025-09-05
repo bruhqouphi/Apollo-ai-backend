@@ -63,8 +63,12 @@ class SmartChartService:
     visualization library based on chart requirements and user preferences.
     """
     
-    def __init__(self, output_dir: str = "./charts"):
+    def __init__(self, output_dir: str = None):
         """Initialize smart chart service."""
+        if output_dir is None:
+            # Use static directory for production deployment
+            from app.config.settings import settings
+            output_dir = str(settings.STATIC_DIR / "charts")
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
         

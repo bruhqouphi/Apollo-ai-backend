@@ -76,6 +76,10 @@ for directory in [settings.UPLOAD_DIR, settings.EXPORT_DIR, settings.STATIC_DIR]
 # Mount static files
 app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
 
+# Create charts directory if it doesn't exist
+charts_dir = settings.STATIC_DIR / "charts"
+charts_dir.mkdir(exist_ok=True)
+
 # Include all routers
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(upload_router, prefix="/api/v1")

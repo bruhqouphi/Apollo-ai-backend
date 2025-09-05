@@ -183,9 +183,10 @@ async def get_interactive_chart(filename: str):
     file_path = chart_service.output_dir / filename
     
     if not file_path.exists():
-        # Try temp_charts directory
-        temp_charts_dir = Path("./temp_charts")
-        file_path = temp_charts_dir / filename
+        # Try static charts directory
+        from app.config.settings import settings
+        static_charts_dir = settings.STATIC_DIR / "charts"
+        file_path = static_charts_dir / filename
         
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Interactive chart not found")
