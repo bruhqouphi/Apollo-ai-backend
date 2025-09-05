@@ -36,10 +36,10 @@
 
    ```bash
    # Never commit this file!
-   OPENAI_API_KEY=sk-your-actual-key-here
-   GROQ_API_KEY=gsk-your-actual-key-here
-   ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
-   HUGGINGFACE_API_KEY=hf-your-actual-key-here
+   OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   HUGGINGFACE_API_KEY=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
 3. **Verify .env is in .gitignore:**
